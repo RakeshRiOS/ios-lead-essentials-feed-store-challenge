@@ -26,7 +26,7 @@ public final class CoreDataFeedStore: FeedStore {
     public func insert(_ feed: [LocalFeedImage], timestamp: Date, completion: @escaping InsertionCompletion) {
         context.perform {
             do {
-                let cache = ManagedCache(context: self.context)
+                let cache = try ManagedCache.newUniqueInstance(in: self.context)
                 cache.timestamp = timestamp
 
                 let images = ManagedFeedImage.images(from: feed, in: self.context)
@@ -73,6 +73,11 @@ private class ManagedCache: NSManagedObject {
         let request = NSFetchRequest<ManagedCache>(entityName: ManagedCache.entity().name!)
         request.returnsObjectsAsFaults = false
         return try context.fetch(request).first
+    }
+    
+    static func newUniqueInstance(in context: NSManagedObjectContext) throws -> ManagedCache {
+        try find(in: context).map(context.delete)
+        return ManagedCache(context: context)
     }
 }
 
