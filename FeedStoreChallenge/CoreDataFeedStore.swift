@@ -29,16 +29,9 @@ public final class CoreDataFeedStore: FeedStore {
                 let cache = ManagedCache(context: self.context)
                 cache.timestamp = timestamp
 
-                let images: [ManagedFeedImage] = feed.map {
-                    let imageFeed = ManagedFeedImage(context: self.context)
-                    imageFeed.id = $0.id
-                    imageFeed.imageDescription = $0.description
-                    imageFeed.url = $0.url
-                    imageFeed.location = $0.location
-                    return imageFeed
-                }
+                let images = ManagedFeedImage.images(from: feed, in: self.context)
 
-                cache.feed = NSOrderedSet(array: images)
+                cache.feed = images
 
                 try self.context.save()
                 completion(nil)
@@ -57,11 +50,7 @@ public final class CoreDataFeedStore: FeedStore {
                 request.returnsObjectsAsFaults = false
 
                 if let cache = try self.context.fetch(request).first {
-                    completion(.found(
-                        feed: cache.feed
-                        .compactMap {($0 as? ManagedFeedImage)}
-                        .map {LocalFeedImage(id: $0.id, description: $0.imageDescription, location: $0.location, url: $0.url)},
-                        timestamp: cache.timestamp))
+                    completion(.found(feed: cache.localFeed, timestamp: cache.timestamp))
                 } else {
                     completion(.empty)
                 }
@@ -78,6 +67,10 @@ public final class CoreDataFeedStore: FeedStore {
 private class ManagedCache: NSManagedObject {
     @NSManaged var timestamp: Date
     @NSManaged var feed: NSOrderedSet
+    
+    var localFeed: [LocalFeedImage] {
+        return feed.compactMap { ($0 as? ManagedFeedImage)?.local }
+    }
 }
 
 @objc(ManagedFeedImage)
@@ -87,6 +80,21 @@ private class ManagedFeedImage: NSManagedObject {
     @NSManaged var location: String?
     @NSManaged var url: URL
     @NSManaged var cache: ManagedCache
+    
+    var local: LocalFeedImage {
+        return LocalFeedImage(id: id, description: imageDescription, location: location, url: url)
+    }
+
+    static func images(from localFeed: [LocalFeedImage], in context: NSManagedObjectContext) -> NSOrderedSet {
+        return NSOrderedSet(array: localFeed.map { local in
+            let image = ManagedFeedImage(context: context)
+            image.id = local.id
+            image.imageDescription = local.description
+            image.location = local.location
+            image.url = local.url
+            return image
+        })
+    }
 }
 
 private extension NSPersistentContainer {
