@@ -32,12 +32,13 @@ public final class CoreDataFeedStore: FeedStore {
     }
     
     public func insert(_ feed: [LocalFeedImage], timestamp: Date, completion: @escaping InsertionCompletion) {
+        let context = self.context
         context.perform {
             do {
-                let cache = try ManagedCache.newUniqueInstance(in: self.context)
+                let cache = try ManagedCache.newUniqueInstance(in: context)
                 cache.timestamp = timestamp
 
-                let images = ManagedFeedImage.images(from: feed, in: self.context)
+                let images = ManagedFeedImage.images(from: feed, in: context)
 
                 cache.feed = images
 
@@ -51,10 +52,10 @@ public final class CoreDataFeedStore: FeedStore {
     }
     
     public func retrieve(completion: @escaping RetrievalCompletion) {
-
+        let context = self.context
         context.perform {
             do {
-                if let cache = try ManagedCache.find(in: self.context) {
+                if let cache = try ManagedCache.find(in: context) {
                     completion(.found(feed: cache.localFeed, timestamp: cache.timestamp))
                 } else {
                     completion(.empty)
